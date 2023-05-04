@@ -8,10 +8,13 @@
 all: nn nn.o
 
 nn.o: nn.cpp
-	g++ -c -o nn.cpp -std=c++11
+	g++ -c nn.cpp
 
 nn: nn.o
 	g++ -g -Wall -o nn nn.o -std=c++11
 
 clean:
-	-rm -f tsp *.o
+	-rm -f nn *.o
+
+run:
+	./nn

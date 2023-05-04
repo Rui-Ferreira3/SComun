@@ -14,6 +14,9 @@
 #include <sstream>
 #include <string>
 #include <random>
+#include <algorithm>
+
+#define NUM_EPOCHS 2000 // 10000
 
 using namespace std;
 
@@ -342,7 +345,7 @@ int main(int argc, const char * argv[]) {
     vector <float> W3 = random_vector(64*10);
 
     cout << "Training the model ...\n";
-    for (unsigned i = 0; i < 10000; ++i) {
+    for (unsigned i = 0; i < NUM_EPOCHS; ++i) {
 
         // Building batches of input variables (X) and labels (y)
         int randindx = rand() % (42000-BATCH_SIZE);
