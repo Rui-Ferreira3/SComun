@@ -79,9 +79,9 @@ static vector<float> random_vector(const int size)
     return data;
 }
 
-vector <float> softmax (const vector <float>& z, const int dim) {
+vector <float> softmax (const vector <float>& z, unsigned int dim) {
     
-    const int zsize = static_cast<int>(z.size());
+    unsigned int zsize = static_cast<int>(z.size());
     vector <float> out;
     
     for (unsigned i = 0; i != zsize; i += dim) {
@@ -240,7 +240,7 @@ vector <float> operator/(const vector <float>& m2, const float m1){
     return product;
 }
 
-vector <float> transpose (float *m, const int C, const int R) {
+vector <float> transpose (float *m, unsigned int C, unsigned int R) {
     
     /*  Returns a transpose matrix of input matrix.
      Inputs:
@@ -306,13 +306,13 @@ int main(int argc, const char * argv[]) {
     cout << "Loading data ...\n";
     vector<float> X_train;
     vector<float> y_train;
-    ifstream myfile ("train.txt");
+    ifstream myfile ("files/train.txt");
     if (myfile.is_open())
     {
         while ( getline (myfile,line) )
         {
             line_v = split(line, '\t');
-            int digit = strtof((line_v[0]).c_str(),0);
+            unsigned int digit = strtof((line_v[0]).c_str(),0);
             for (unsigned i = 0; i < 10; ++i) {
                 if (i == digit)
                 {
@@ -321,7 +321,7 @@ int main(int argc, const char * argv[]) {
                 else y_train.push_back(0.);
             }
             
-            int size = static_cast<int>(line_v.size());
+            unsigned int size = static_cast<int>(line_v.size());
             for (unsigned i = 1; i < size; ++i) {
                 X_train.push_back(strtof((line_v[i]).c_str(),0));
             }
@@ -332,11 +332,11 @@ int main(int argc, const char * argv[]) {
     
     else cout << "Unable to open file" << '\n';
     
-    int xsize = static_cast<int>(X_train.size());
-    int ysize = static_cast<int>(y_train.size());
+    //int xsize = static_cast<int>(X_train.size());     DEPOIS TIRAR COMMENT!!!
+    //int ysize = static_cast<int>(y_train.size());
     
     // Some hyperparameters for the NN
-    int BATCH_SIZE = 256;
+    unsigned int BATCH_SIZE = 256;
     float lr = .01/BATCH_SIZE;
 
     // Random initialization of the weights
@@ -348,7 +348,7 @@ int main(int argc, const char * argv[]) {
     for (unsigned i = 0; i < NUM_EPOCHS; ++i) {
 
         // Building batches of input variables (X) and labels (y)
-        int randindx = rand() % (42000-BATCH_SIZE);
+        unsigned int randindx = rand() % (42000-BATCH_SIZE);
         vector<float> b_X;
         vector<float> b_y;
         for (unsigned j = randindx*784; j < (randindx+BATCH_SIZE)*784; ++j){
