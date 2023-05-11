@@ -16,7 +16,7 @@
 #include <random>
 #include <algorithm>
 
-#define NUM_EPOCHS 2000 // 10000
+#define NUM_EPOCHS 1000 // 10000
 
 using namespace std;
 
@@ -344,6 +344,13 @@ int main(int argc, const char * argv[]) {
     vector <float> W2 = random_vector(128*64);
     vector <float> W3 = random_vector(64*10);
 
+    // Initialization of best weights and loss
+    float best_loss = 1.0;
+    vector <float> best_W1 = W1;
+    vector <float> best_W2 = W2;
+    vector <float> best_W3 = W3;
+
+
     cout << "Training the model ...\n";
     for (unsigned i = 0; i < NUM_EPOCHS; ++i) {
 
@@ -394,9 +401,35 @@ int main(int argc, const char * argv[]) {
                 loss += loss_m[k]*loss_m[k];
             }
             cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
+            // Upating the best parameters
+            if(loss/BATCH_SIZE < best_loss){
+                cout << "Updating weights ...\n";
+                best_loss = loss/BATCH_SIZE;
+                best_W1 = W1;
+                best_W2 = W2;
+                best_W2 = W2;
+            }
             cout << "--------------------------------------------End of Epoch :(------------------------------------------------" <<"\n";
         };
     };
+
+    cout << "Saving weights in file ...\n";
+
+    ofstream newfile("files/weights.txt");
+
+    // newfile << "Loss:" << endl << best_loss << endl;
+    // newfile << "Weights: " << endl;
+    for(float val: best_W1)
+        newfile << val << " ";
+    newfile << endl;
+    for(float val: best_W2)
+        newfile << val << " ";
+    newfile << endl;
+    for(float val: best_W3)
+        newfile << val << " ";
+    newfile << endl;
+
+    newfile.close();
     
     return 0;
 }
