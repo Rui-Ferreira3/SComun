@@ -67,17 +67,17 @@ vector <float> reluPrime (const vector <float>& z) {
     return output;
 } 
 
-static vector<float> random_vector(const int size)
-{
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<> distribution(0.0, 0.05);
-    static default_random_engine generator;
-
-    vector<float> data(size);
-    generate(data.begin(), data.end(), [&]() { return distribution(generator); });
-    return data;
-}
+//static vector<float> random_vector(const int size)
+//{
+//    random_device rd;
+//    mt19937 gen(rd());
+//    uniform_real_distribution<> distribution(0.0, 0.05);
+//    static default_random_engine generator;
+//
+//    vector<float> data(size);
+//    generate(data.begin(), data.end(), [&]() { return distribution(generator); });
+//    return data;
+//}
 
 vector <float> softmax (const vector <float>& z, unsigned int dim) {
     
@@ -336,7 +336,7 @@ int main(int argc, const char * argv[]) {
     //int ysize = static_cast<int>(y_train.size());
     
     // Some hyperparameters for the NN
-    unsigned int BATCH_SIZE = 2560;
+    unsigned int BATCH_SIZE = 256;
 
 
 
@@ -344,17 +344,21 @@ int main(int argc, const char * argv[]) {
     vector<float> W2;
     vector<float> W3;
 
+
     ifstream myfile2 ("files/weights.txt");
     if (myfile2.is_open())
     {
-        while ( getline (myfile2,line) )
-        {
-            line_v = split(line, '\t');
+        unsigned int line_number = 1;
 
-            unsigned int line_number= 1;
-            
+        while ( getline (myfile2,line) )
+        {   
+            line_v = split(line, '\t');
             unsigned int size = static_cast<int>(line_v.size());
+
+            cout << "size " << size <<"\n";
+
             for (unsigned i = 1; i < size; ++i) {
+
                 if (line_number == 1){
                     W1.push_back(strtof((line_v[i]).c_str(),0));
                 }
@@ -364,10 +368,12 @@ int main(int argc, const char * argv[]) {
                 if (line_number == 3){
                     W3.push_back(strtof((line_v[i]).c_str(),0));
                 }
+                cout << line_number;
                 
             }
 
             line_number = line_number + 1;
+
         }
 
         myfile2.close();
@@ -391,12 +397,20 @@ int main(int argc, const char * argv[]) {
         b_y.push_back(y_train[k]);
     }
 
+
+    
+    
     // Feed forward
     vector<float> a1 = relu(dot( b_X, W1, BATCH_SIZE, 784, 128 ));
-    vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
-    vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
+    //vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
+    //vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
         
-    
+    //vector<float> loss_m = yhat - b_y;
+    //float loss = 0.0;
+    //for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
+    //    loss += loss_m[k]*loss_m[k];
+    //}
+    //cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
     
     return 0;
 }

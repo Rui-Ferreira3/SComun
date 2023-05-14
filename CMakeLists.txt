@@ -46,3 +46,4 @@ endif()
 ###
 ### EXAMPLE:
 add_executable( nn nn.cpp )
+add_executable( nn_t nn_test.cpp )
