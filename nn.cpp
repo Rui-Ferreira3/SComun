@@ -304,8 +304,8 @@ int main(int argc, const char * argv[]) {
     vector<string> line_v;
 
     cout << "Loading data ...\n";
-    vector<float> X_train;
-    vector<float> y_train;
+    vector<float> X;
+    vector<float> y;
     ifstream myfile ("files/train.txt");
     if (myfile.is_open())
     {
@@ -316,21 +316,42 @@ int main(int argc, const char * argv[]) {
             for (unsigned i = 0; i < 10; ++i) {
                 if (i == digit)
                 {
-                    y_train.push_back(1.);
+                    y.push_back(1.);
                 }
-                else y_train.push_back(0.);
+                else y.push_back(0.);
             }
             
             unsigned int size = static_cast<int>(line_v.size());
             for (unsigned i = 1; i < size; ++i) {
-                X_train.push_back(strtof((line_v[i]).c_str(),0));
+                X.push_back(strtof((line_v[i]).c_str(),0));
             }
         }
-        X_train = X_train/255.0;
+        X = X/255.0;
         myfile.close();
     }
     
     else cout << "Unable to open file" << '\n';
+
+    cout << "Splitting data ..\n";
+    vector<float> X_train(X.begin(), X.begin() + 2*X.size()/3);
+    vector<float> y_train(y.begin(), y.begin() + 2*y.size()/3);
+    vector<float> X_test(X.begin() + 2*X.size()/3, X.end());
+    vector<float> y_test(y.begin() + 2*y.size()/3, y.end());
+
+    // cout << "dataset size: " << X.size() << endl;
+    // cout << "train size: " << X_train.size() << endl;
+    // cout << "test size: " << X_test.size() << endl;
+
+    cout << "Saving test data ..\n";
+    ofstream testfile ("files/test.txt");
+    for(float val: X_test)
+        testfile << val << " ";
+    testfile.close();
+    ofstream resultsfile ("files/results.txt");
+    for(float val: y_test)
+        resultsfile << val << " ";
+    resultsfile.close();
+
     
     //int xsize = static_cast<int>(X_train.size());     DEPOIS TIRAR COMMENT!!!
     //int ysize = static_cast<int>(y_train.size());
