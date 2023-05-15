@@ -352,12 +352,12 @@ int main(int argc, const char * argv[]) {
 
         while ( getline (myfile2,line) )
         {   
-            line_v = split(line, '\t');
+            line_v = split(line, ' ');
             unsigned int size = static_cast<int>(line_v.size());
 
-            cout << "size " << size <<"\n";
+            cout << "size " << size << endl;
 
-            for (unsigned i = 1; i < size; ++i) {
+            for (unsigned i = 0; i < size; ++i) {
 
                 if (line_number == 1){
                     W1.push_back(strtof((line_v[i]).c_str(),0));
@@ -368,8 +368,6 @@ int main(int argc, const char * argv[]) {
                 if (line_number == 3){
                     W3.push_back(strtof((line_v[i]).c_str(),0));
                 }
-                cout << line_number;
-                
             }
 
             line_number = line_number + 1;
@@ -402,15 +400,15 @@ int main(int argc, const char * argv[]) {
     
     // Feed forward
     vector<float> a1 = relu(dot( b_X, W1, BATCH_SIZE, 784, 128 ));
-    //vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
-    //vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
+    vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
+    vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
         
-    //vector<float> loss_m = yhat - b_y;
-    //float loss = 0.0;
-    //for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
-    //    loss += loss_m[k]*loss_m[k];
-    //}
-    //cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
+    vector<float> loss_m = yhat - b_y;
+    float loss = 0.0;
+    for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
+       loss += loss_m[k]*loss_m[k];
+    }
+    cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
     
     return 0;
 }
