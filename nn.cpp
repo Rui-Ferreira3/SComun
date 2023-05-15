@@ -16,7 +16,7 @@
 #include <random>
 #include <algorithm>
 
-#define NUM_EPOCHS 1000 // 10000
+#define NUM_EPOCHS 10000 // 10000
 
 using namespace std;
 

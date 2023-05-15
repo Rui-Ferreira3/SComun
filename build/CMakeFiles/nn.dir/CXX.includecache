@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/pedro/SComun/nn.cpp
+iostream
+-
+vector
+-
+math.h
+-
+fstream
+-
+sstream
+-
+string
+-
+random
+-
+algorithm
+-
+

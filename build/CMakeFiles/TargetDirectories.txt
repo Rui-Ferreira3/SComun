@@ -1,3 +1,4 @@
-/root/uni/SComun/build/CMakeFiles/nn.dir
-/root/uni/SComun/build/CMakeFiles/edit_cache.dir
-/root/uni/SComun/build/CMakeFiles/rebuild_cache.dir
+/home/pedro/SComun/build/CMakeFiles/edit_cache.dir
+/home/pedro/SComun/build/CMakeFiles/rebuild_cache.dir
+/home/pedro/SComun/build/CMakeFiles/nn_t.dir
+/home/pedro/SComun/build/CMakeFiles/nn.dir
