@@ -16,9 +16,21 @@
 #include <random>
 #include <algorithm>
 
+#include "openfhe.h"
+
+// header files needed for serialization
+#include "ciphertext-ser.h"
+#include "cryptocontext-ser.h"
+#include "key/key-ser.h"
+#include "scheme/ckksrns/ckksrns-ser.h"
+
 #define NUM_EPOCHS 10000 // 10000
 
 using namespace std;
+using namespace lbcrypto;
+
+#define WEIGHTS_PATH "files/serialized_weights.txt"
+#define BATCH_SIZE 256
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
     
@@ -298,15 +310,14 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-int main(int argc, const char * argv[]) {
-
+pair<vector<float>,vector<float>> load_data(string path) {
     string line;
     vector<string> line_v;
 
     cout << "Loading data ...\n";
     vector<float> X_train;
     vector<float> y_train;
-    ifstream myfile ("files/train.txt");
+    ifstream myfile (path);
     if (myfile.is_open())
     {
         while ( getline (myfile,line) )
@@ -329,35 +340,13 @@ int main(int argc, const char * argv[]) {
         X_train = X_train/255.0;
         myfile.close();
     }
-    
     else cout << "Unable to open file" << '\n';
 
-    // cout << "Splitting data ..\n";
-    // vector<float> X_train(X.begin(), X.begin() + 2*X.size()/3);
-    // vector<float> y_train(y.begin(), y.begin() + 2*y.size()/3);
-    // vector<float> X_test(X.begin() + 2*X.size()/3, X.end());
-    // vector<float> y_test(y.begin() + 2*y.size()/3, y.end());
+    return make_pair(X_train, y_train);
+}
 
-    // cout << "dataset size: " << X.size() << endl;
-    // cout << "train size: " << X_train.size() << endl;
-    // cout << "test size: " << X_test.size() << endl;
-
-    // cout << "Saving test data ..\n";
-    // ofstream testfile ("files/test.txt");
-    // for(float val: X_test)
-    //     testfile << val << " ";
-    // testfile.close();
-    // ofstream resultsfile ("files/results.txt");
-    // for(float val: y_test)
-    //     resultsfile << val << " ";
-    // resultsfile.close();
-
-    
-    //int xsize = static_cast<int>(X_train.size());     DEPOIS TIRAR COMMENT!!!
-    //int ysize = static_cast<int>(y_train.size());
-    
+vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) {
     // Some hyperparameters for the NN
-    unsigned int BATCH_SIZE = 256;
     float lr = .01/BATCH_SIZE;
 
     // Random initialization of the weights
@@ -434,23 +423,83 @@ int main(int argc, const char * argv[]) {
         };
     };
 
-    cout << "Saving weights in file ...\n";
+    vector<vector<float>> weights;
+    weights.push_back(W1);
+    weights.push_back(W2);
+    weights.push_back(W3);
 
-    ofstream newfile("files/weights.txt");
+    return weights;
+}
 
-    // newfile << "Loss:" << endl << best_loss << endl;
-    // newfile << "Weights: " << endl;
-    for(float val: best_W1)
-        newfile << val << " ";
-    newfile << endl;
-    for(float val: best_W2)
-        newfile << val << " ";
-    newfile << endl;
-    for(float val: best_W3)
-        newfile << val << " ";
-    newfile << endl;
+vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> weights) {
+    vector<float> W1 = weights[0];
+    vector<float> W2 = weights[1];
+    vector<float> W3 = weights[2];
 
-    newfile.close();
-    
+    cout << "Making the predictions ...\n";
+
+    // Building batches of input variables (X) and labels (y)
+    unsigned int randindx = rand() % (42000-BATCH_SIZE);
+    vector<float> b_X;
+    vector<float> b_y;
+    for (unsigned j = randindx*784; j < (randindx+BATCH_SIZE)*784; ++j){
+        b_X.push_back(X[j]);
+    }
+    for (unsigned k = randindx*10; k < (randindx+BATCH_SIZE)*10; ++k){
+        b_y.push_back(y[k]);
+    }
+
+    // Feed forward
+    vector<float> a1 = relu(dot( b_X, W1, BATCH_SIZE, 784, 128 ));
+    vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
+    vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
+        
+    vector<float> loss_m = yhat - b_y;
+    float loss = 0.0;
+    for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
+       loss += loss_m[k]*loss_m[k];
+    }
+    cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
+
+    return yhat;
+}
+
+int main(int argc, const char * argv[]) {
+    vector<vector<float>> weights;
+
+    if(argc != 2) {
+        std::cerr << "Wrong number of arguments!\nExpecting one argument: tain or test\n" << std::endl;
+        std::exit(1);
+    }
+
+    string func = argv[1];
+
+    if(func == "train") {
+        pair<vector<float>,vector<float>> train_data = load_data("files/train.txt");
+
+        weights = train_model(train_data.first, train_data.second);
+
+        cout << "Saving weights in file ...\n";
+
+        if (!Serial::SerializeToFile(WEIGHTS_PATH, weights, SerType::BINARY)) {
+            std::cerr << "Exception writing weights to serialized_weights.txt" << std::endl;
+            std::exit(1);
+        }
+    }else if(func == "test") {
+        cout << "Reading weights from file ...\n";
+
+        if (!Serial::DeserializeFromFile(WEIGHTS_PATH, weights, SerType::BINARY)) {
+            std::cerr << "Cannot read weiths from " << WEIGHTS_PATH << std::endl;
+            std::exit(1);
+        }
+
+        pair<vector<float>,vector<float>> test_data = load_data("files/train.txt");
+
+        vector<float> yhat = predict(test_data.first, test_data.second, weights);
+    }else {
+        std::cerr << "Invalid argument!\nExpecting one argument: tain or test\n" << std::endl;
+        std::exit(1);
+    }
+
     return 0;
 }
