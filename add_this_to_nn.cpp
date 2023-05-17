@@ -40,7 +40,10 @@ std::string rotKeyLocation   = "/key_rot.txt";   // automorphism / rotation key
  *  - !! We also create an object and encrypt it in this function before sending
  * it off to the server to be decrypted
  */
-void clientProcess() {
+
+std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
+
+//void clientProcess() {
     CryptoContext<DCRTPoly> clientCC;
     clientCC->ClearEvalMultKeys();
     clientCC->ClearEvalAutomorphismKeys();
@@ -109,10 +112,27 @@ void clientProcess() {
     Serial::SerializeToFile(DATAFOLDER + "/nn_output.txt", nn_output , SerType::BINARY);// ex de escrita do ficheiro de output da nn encriptado, a ser depois lido pelo codigo de desencriptação
 
     std::cout << "Serialized all ciphertexts from client" << '\n' << std::endl;
+
+    return std::make_tuple(clientCC, clientKP);
 }
 
 int main(){
 
-    clientProcess();
+    //clientProcess();
+
+    auto tupleCryptoContext_KeyPair = clientProcess();
+    auto cc                         = std::get<0>(tupleCryptoContext_KeyPair);
+    //auto kp                         = std::get<1>(tupleCryptoContext_KeyPair);
+
+    Ciphertext<DCRTPoly> client_X_input;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + "/crypted_X_input.txt" << std::endl;
+        std::exit(1);
+    }
+
+    auto nn_output_mult = cc->EvalMult(client_X_input, client_X_input);
+    auto rotate_result_positive_nn_output = cc->EvalRotate(client_X_input, 1);     //ex: rotação positiva
+
+    std::cout << "Did math" << '\n' << std::endl;
 
 }
