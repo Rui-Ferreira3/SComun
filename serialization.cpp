@@ -152,7 +152,7 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
 
     vector<double> X_train;
     vector<double> y_train;
-    std::ifstream myfile ("train.txt");
+    std::ifstream myfile ("files/train.txt");
     //ifstream myfile ("train.txt");
     string line;
     vector<string> line_v;
