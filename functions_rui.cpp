@@ -50,7 +50,7 @@ vector <float> operator/(const vector <float>& m2, const float m1){
     return product;
 }
 
-CryptoContextImpl<Element> transpose (CryptoContext<DCRTPoly> cc, CryptoContextImpl<Element> &m, unsigned int C, unsigned int R) {
+Ciphertext<DCRTPoly> transpose (CryptoContext<DCRTPoly> cc, Ciphertext<DCRTPoly> &m, unsigned int C, unsigned int R) {
     
     /*  Returns a transpose matrix of input matrix.
      Inputs:
@@ -60,7 +60,7 @@ CryptoContextImpl<Element> transpose (CryptoContext<DCRTPoly> cc, CryptoContextI
      Output: vector, transpose matrix mT of input matrix m
      */
 
-    CryptoContextImpl<Element> cScalar = cc->EvalMult(m, 4.0);
+    auto cScalar = cc->EvalMult(m, 4.0);
 
     return cScalar;
 }
