@@ -7,6 +7,10 @@
 //  Copyright © 2017 Sergei Bugrov. All rights reserved.
 //  Download dataset from: https://drive.google.com/file/d/1OdtwXHf_-2T0aS9HLBnxU3o-72mklCZY/view?usp=sharing
 
+#include <iomanip>
+#include <tuple>
+#include <unistd.h>
+
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -16,9 +20,99 @@
 #include <random>
 #include <algorithm>
 
+#include "openfhe.h"
+
+// header files needed for serialization
+#include "ciphertext-ser.h"
+#include "cryptocontext-ser.h"
+#include "key/key-ser.h"
+#include "scheme/ckksrns/ckksrns-ser.h"
+
 #define NUM_EPOCHS 2000 // 10000
 
 using namespace std;
+using namespace lbcrypto;
+
+const std::string DATAFOLDER = "demoData"; // nome da pasta
+std::string ccLocation       = "/cryptocontext.txt";
+std::string pubKeyLocation   = "/key_pub.txt";   // Pub key
+std::string multKeyLocation  = "/key_mult.txt";  // relinearization key
+std::string rotKeyLocation   = "/key_rot.txt";   // automorphism / rotation key
+
+std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
+
+//void clientProcess() {
+    CryptoContext<DCRTPoly> clientCC;
+    clientCC->ClearEvalMultKeys();
+    clientCC->ClearEvalAutomorphismKeys();
+    lbcrypto::CryptoContextFactory<lbcrypto::DCRTPoly>::ReleaseAllContexts();
+    if (!Serial::DeserializeFromFile(DATAFOLDER + ccLocation, clientCC, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " << DATAFOLDER << "/cryptocontext.txt" << std::endl;
+        std::exit(1);
+    }
+    std::cout << "Client CC deserialized" << '\n' << std::endl;
+
+    KeyPair<DCRTPoly> clientKP;  // We do NOT have a secret key. The client
+    // should not have access to this
+    PublicKey<DCRTPoly> clientPublicKey;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + pubKeyLocation, clientPublicKey, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " << DATAFOLDER << "/cryptocontext.txt" << std::endl;
+        std::exit(1);
+    }
+    std::cout << "Client KP deserialized" << '\n' << std::endl;
+
+    std::ifstream multKeyIStream(DATAFOLDER + multKeyLocation, std::ios::in | std::ios::binary);
+    if (!multKeyIStream.is_open()) {
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + multKeyLocation << std::endl;
+        std::exit(1);
+    }
+    if (!clientCC->DeserializeEvalMultKey(multKeyIStream, SerType::BINARY)) {
+        std::cerr << "Could not deserialize eval mult key file" << std::endl;
+        std::exit(1);
+    }
+
+    std::cout << "Deserialized eval mult keys" << '\n' << std::endl;
+    std::ifstream rotKeyIStream(DATAFOLDER + rotKeyLocation, std::ios::in | std::ios::binary);
+    if (!rotKeyIStream.is_open()) {
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + multKeyLocation << std::endl;
+        std::exit(1);
+    }
+    if (!clientCC->DeserializeEvalAutomorphismKey(rotKeyIStream, SerType::BINARY)) {
+        std::cerr << "Could not deserialize eval rot key file" << std::endl;
+        std::exit(1);
+    }
+
+    // até aqui são chaves para fazer as operações
+
+    Ciphertext<DCRTPoly> client_X_input;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + "/crypted_X_input.txt" << std::endl;
+        std::exit(1);
+    }
+
+    std::cout << "Deserialized cryted_X_Input" << '\n' << std::endl;
+
+    //-----------------------------------------------------------------------------------------------------------------
+
+    auto nn_output   = clientCC->EvalMult(client_X_input, client_X_input);  //aqui pode-se multiplicar os pesos
+    //auto add_result    = clientCC->EvalAdd(clientC1, clientC2);             //ex: soma
+    //auto rotate_result_positive    = clientCC->EvalRotate(clientC1, 1);     //ex: rotação positiva
+    //auto rotate_result_negative = clientCC->EvalRotate(clientC1, -1);       //ex: rotação negativa        ESTÃO EM COMENTÁRIO PQ NÃO SÃO USADAS E DEPOIS DÁ WARNING
+
+    // Now, we want to simulate a client who is encrypting data for the server to
+    // decrypt. E.g weights of a machine learning algorithm
+
+    //std::vector<std::complex<double>> clientVector1 = {1.0, 2.0, 3.0, 4.0};                             //ex de ficheiro de saida
+    //auto clientPlaintext1                           = clientCC->MakeCKKSPackedPlaintext(clientVector1);
+    //auto clientInitiatedEncryption                  = clientCC->Encrypt(clientPublicKey, clientPlaintext1);
+    //Serial::SerializeToFile(DATAFOLDER + "/nn_output.txt", clientInitiatedEncryption , SerType::BINARY);
+
+    Serial::SerializeToFile(DATAFOLDER + "/nn_output.txt", nn_output , SerType::BINARY);// ex de escrita do ficheiro de output da nn encriptado, a ser depois lido pelo codigo de desencriptação
+
+    std::cout << "Serialized all ciphertexts from client" << '\n' << std::endl;
+
+    return std::make_tuple(clientCC, clientKP);
+}
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
     
@@ -302,6 +396,21 @@ int main(int argc, const char * argv[]) {
 
     string line;
     vector<string> line_v;
+
+    auto tupleCryptoContext_KeyPair = clientProcess();
+    auto cc                         = std::get<0>(tupleCryptoContext_KeyPair);
+    //auto kp                         = std::get<1>(tupleCryptoContext_KeyPair);
+
+    Ciphertext<DCRTPoly> client_X_input;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + "/crypted_X_input.txt" << std::endl;
+        std::exit(1);
+    }
+
+    auto nn_output_mult = cc->EvalMult(client_X_input, client_X_input);
+    auto rotate_result_positive_nn_output = cc->EvalRotate(client_X_input, 1);     //ex: rotação positiva
+
+    std::cout << "Did math" << '\n' << std::endl;
 
     cout << "Loading data ...\n";
     vector<float> X_train;
