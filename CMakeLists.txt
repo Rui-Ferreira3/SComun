@@ -45,7 +45,7 @@ endif()
 ### add_executable( EXECUTABLE-NAME SOURCES )
 ###
 ### EXAMPLE:
-# add_executable( nn nn.cpp )
-add_executable( nn_t nn_test.cpp )
+add_executable( nn nn.cpp )
+# add_executable( nn_t nn_test.cpp )
 add_executable( serialization serialization.cpp )
 # add_executable( func functions_rui.cpp )
