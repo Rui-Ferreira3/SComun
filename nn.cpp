@@ -497,7 +497,7 @@ int main(int argc, const char * argv[]) {
 
         vector<float> yhat = predict(test_data.first, test_data.second, weights);
     }else {
-        std::cerr << "Invalid argument!\nExpecting one argument: tain or test\n" << std::endl;
+        std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
     }
 
