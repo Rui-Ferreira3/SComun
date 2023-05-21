@@ -12,44 +12,6 @@
 using namespace std;
 using namespace lbcrypto;
 
-vector <float> operator-(const vector <float>& m1, const vector <float>& m2){
-    
-    /*  Returns the difference between two vectors.
-     Inputs:
-     m1: vector
-     m2: vector
-     Output: vector, m1 - m2, difference between two vectors m1 and m2.
-     */
-    
-    const unsigned long VECTOR_SIZE = m1.size();
-    vector <float> difference (VECTOR_SIZE);
-    
-    for (unsigned i = 0; i != VECTOR_SIZE; ++i){
-        difference[i] = m1[i] - m2[i];
-    };
-    
-    return difference;
-}
-
-vector <float> operator/(const vector <float>& m2, const float m1){
-    
-    /*  Returns the product of a float and a vectors (elementwise multiplication).
-     Inputs:
-     m1: float
-     m2: vector
-     Output: vector, m1 * m2, product of two vectors m1 and m2
-     */
-    
-    const unsigned long VECTOR_SIZE = m2.size();
-    vector <float> product (VECTOR_SIZE);
-    
-    for (unsigned i = 0; i != VECTOR_SIZE; ++i){
-        product[i] = m2[i] / m1;
-    };
-    
-    return product;
-}
-
 Ciphertext<DCRTPoly> transpose (CryptoContext<DCRTPoly> cc, Ciphertext<DCRTPoly> &m, unsigned int C, unsigned int R) {
     
     /*  Returns a transpose matrix of input matrix.
@@ -60,9 +22,35 @@ Ciphertext<DCRTPoly> transpose (CryptoContext<DCRTPoly> cc, Ciphertext<DCRTPoly>
      Output: vector, transpose matrix mT of input matrix m
      */
 
-    auto cScalar = cc->EvalMult(m, 4.0);
+    auto cScalar = cc->EvalRotate(m, -2);
+
 
     return cScalar;
+}
+
+vector <Ciphertext<DCRTPoly>> dot (CryptoContext<DCRTPoly> cc,const vector <Ciphertext<DCRTPoly>> &m1, const vector <float> &m2, const int m1_rows, const int m1_columns, const int m2_columns) {
+    /*  Returns the product of two matrices: m1 x m2.
+     Inputs:
+     m1: vector, left matrix of size m1_rows x m1_columns
+     m2: vector, right matrix of size m1_columns x m2_columns (the number of rows in the right matrix
+     must be equal to the number of the columns in the left one)
+     m1_rows: int, number of rows in the left matrix m1
+     m1_columns: int, number of columns in the left matrix m1
+     m2_columns: int, number of columns in the right matrix m2
+     Output: vector, m1 * m2, product of two vectors m1 and m2, a matrix of size m1_rows x m2_columns
+     */
+    vector <Ciphertext<DCRTPoly>> output (m1_rows*m2_columns);
+
+    for(int m2_col=0; m2_col<m2_columns; m2_col++) {
+        Ciphertext<DCRTPoly> cSum = cc->EvalMult(m1[0], m2[m2_col*m2_columns]);
+        for(int m1_col=1; m1_col<m1_columns; m1_col++) {
+            Ciphertext<DCRTPoly> cMul = cc->EvalMult(m1[m1_col], m2[m2_col*m2_columns + m1_col]);
+            cSum = cc->EvalAdd(cSum, cMul);
+        }
+        output.push_back(cSum);
+    }
+    
+    return output;
 }
 
 int main(){
@@ -100,14 +88,20 @@ int main(){
     std::vector<double> x1 = {0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0};
     std::vector<double> x2 = {5.0, 4.0, 3.0, 2.0, 1.0, 0.75, 0.5, 0.25};
 
-    Plaintext ptxt1 = cc->MakeCKKSPackedPlaintext(x1);
-    Plaintext ptxt2 = cc->MakeCKKSPackedPlaintext(x2);
+    // Plaintext ptxt1 = cc->MakeCKKSPackedPlaintext(x1);
+    // Plaintext ptxt2 = cc->MakeCKKSPackedPlaintext(x2);
 
-    std::cout << "Input x1: " << ptxt1 << std::endl;
-    std::cout << "Input x2: " << ptxt2 << std::endl;
+    // std::cout << "Input x1: " << ptxt1 << std::endl;
+    // std::cout << "Input x2: " << ptxt2 << std::endl;
 
-    auto c1 = cc->Encrypt(keys.publicKey, ptxt1);
-    auto c2 = cc->Encrypt(keys.publicKey, ptxt2);
+    // auto c1 = cc->Encrypt(keys.publicKey, ptxt1);
+    // auto c2 = cc->Encrypt(keys.publicKey, ptxt2);
+
+    vector <Ciphertext<DCRTPoly>> c1;
+    // for(int i=0; i<x1.size(); i++) {
+    //     Plaintext ptxt1 = cc->MakeCKKSPackedPlaintext(x1[i]);
+    //     c1.push_back()
+    // }
 
 
 
@@ -124,7 +118,7 @@ int main(){
     // auto cRot1 = cc->EvalRotate(c1, 1);
     // auto cRot2 = cc->EvalRotate(c1, -2);
 
-    auto cScalar = transpose(cc, c1, 10, 10);
+    // auto cDot = dot(cc, c1, 10, 10);
 
     
 
@@ -136,9 +130,10 @@ int main(){
     std::cout.precision(8);
 
     std::cout << std::endl << "Results of homomorphic computations: " << std::endl;
-    cc->Decrypt(keys.secretKey, cScalar, &result);
-    result->SetLength(batchSize);
-    std::cout << "4 * x1 = " << result << std::endl;
+    // cc->Decrypt(keys.secretKey, cDot, &result);
+    // result->SetLength(batchSize);
+    // std::cout << std::endl << "In rotations, very small outputs (~10^-10 here) correspond to 0's:" << std::endl;
+    // std::cout << "x1 rotate by 1 = " << result << std::endl;
 
 
     return 0;

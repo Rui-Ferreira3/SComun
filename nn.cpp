@@ -468,7 +468,7 @@ int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
 
     if(argc != 2) {
-        std::cerr << "Wrong number of arguments!\nExpecting one argument: tain or test\n" << std::endl;
+        std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
     }
 
