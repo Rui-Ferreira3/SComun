@@ -63,7 +63,7 @@ std::string clientVectorLocation = "/ciphertextVectorFromClient.txt";
  */
 
 std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(int multDepth, int scaleModSize,
-                                                                                int batchSize, int mode) {
+                                                                                int batchSize) {
     CCParams<CryptoContextCKKSRNS> parameters;
     parameters.SetMultiplicativeDepth(multDepth);
     parameters.SetScalingModSize(scaleModSize);
@@ -225,15 +225,10 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
     return std::make_tuple(serverCC, serverKP, vec1.size());
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     std::cout << "This program requires the subdirectory `" << DATAFOLDER << "' to exist, otherwise you will get "
               << "an error writing serializations.\n" << std::endl;
 
-    unsigned int mode = 0;
-
-    if(int(*argv[0])=='1'){
-        mode = 1;// modo colunas
-    }
 
     // Set main params
     const int multDepth    = 5;
@@ -245,7 +240,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Part 1: Cryptocontext generation, key generation, data encryption\n" << std::endl;
 
-    auto tupleCryptoContext_KeyPair = serverSetupAndWrite(multDepth, scaleModSize, batchSize, mode);
+    auto tupleCryptoContext_KeyPair = serverSetupAndWrite(multDepth, scaleModSize, batchSize);
     auto cc                         = std::get<cryptoContextIdx>(tupleCryptoContext_KeyPair);
     auto kp                         = std::get<keyPairIdx>(tupleCryptoContext_KeyPair);
 
