@@ -338,7 +338,7 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
      Output: vector, m1 * m2, product of two vectors m1 and m2, a matrix of size m1_rows x m2_columns
      */
     
-    vector <float> output (m1_rows*m2_columns);
+    vector <float> output (m1_rows*m2_columns); 
     
     for( int row = 0; row != m1_rows; ++row ) {
         for( int col = 0; col != m2_columns; ++col ) {
