@@ -30,8 +30,59 @@ using namespace std;
 using namespace lbcrypto;
 
 #define WEIGHTS_PATH "files/serialized_weights.txt"
-#define INPUT_PATH "files/creypted_X_input.txt"
+#define INPUT_PATH "files/crypted_X_input.txt"
+
+#define ccLocation "files/demoData/cryptocontext.txt"
+#define pubKeyLocation "files/demoData/key_pub.txt"   // Pub key
+#define multKeyLocation "files/demoData/key_mult.txt"  // relinearization key
+#define rotKeyLocation "files/demoData/key_rot.txt"   // automorphism / rotation key
+
 #define BATCH_SIZE 256
+
+pair<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
+
+    CryptoContext<DCRTPoly> clientCC;
+    clientCC->ClearEvalMultKeys();
+    clientCC->ClearEvalAutomorphismKeys();
+    lbcrypto::CryptoContextFactory<lbcrypto::DCRTPoly>::ReleaseAllContexts();
+    if (!Serial::DeserializeFromFile(ccLocation, clientCC, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " << ccLocation << std::endl;
+        std::exit(1);
+    }
+    std::cout << "Client CC deserialized" << '\n' << std::endl;
+
+    KeyPair<DCRTPoly> clientKP;  // We do NOT have a secret key. The client
+    // should not have access to this
+    PublicKey<DCRTPoly> clientPublicKey;
+    if (!Serial::DeserializeFromFile(pubKeyLocation, clientPublicKey, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " pubKeyLocation << std::endl;
+        std::exit(1);
+    }
+    std::cout << "Client KP deserialized" << '\n' << std::endl;
+
+    // std::ifstream multKeyIStream(multKeyLocation, std::ios::in | std::ios::binary);
+    // if (!multKeyIStream.is_open()) {
+    //     std::cerr << "Cannot read serialization from " multKeyLocation << std::endl;
+    //     std::exit(1);
+    // }
+    // if (!clientCC->DeserializeEvalMultKey(multKeyIStream, SerType::BINARY)) {
+    //     std::cerr << "Could not deserialize eval mult key file" << std::endl;
+    //     std::exit(1);
+    // }
+
+    // std::cout << "Deserialized eval mult keys" << '\n' << std::endl;
+    // std::ifstream rotKeyIStream(rotKeyLocation, std::ios::in | std::ios::binary);
+    // if (!rotKeyIStream.is_open()) {
+    //     std::cerr << "Cannot read serialization from " << rotKeyLocation << std::endl;
+    //     std::exit(1);
+    // }
+    // if (!clientCC->DeserializeEvalAutomorphismKey(rotKeyIStream, SerType::BINARY)) {
+    //     std::cerr << "Could not deserialize eval rot key file" << std::endl;
+    //     std::exit(1);
+    // }
+    
+    return make_pair(clientCC, clientKP);
+}
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
     
@@ -301,13 +352,21 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
     return output;
 }
 
-void crypted_dot (vector<CryptoContext<DCRTPoly>> &m1, vector<float> &m2) {
-    int output_rows = m1.size();
-    int output_cols = 1;
-    vector<CryptoContext<DCRTPoly>> output (output_rows*output_cols);
+vector<Ciphertext<DCRTPoly>> crypted_dot (CryptoContext<DCRTPoly> cc, const vector<Ciphertext<DCRTPoly>> &m1, const vector<float> &W, int num_rows, int num_cols) {
+    vector<Ciphertext<DCRTPoly>> output;
 
-    
 
+    for(int j=0; j<num_cols; j++) {
+        vector<float> col;
+        for(int i=0; i<num_rows; i++) {
+            int index = num_rows*i + j;
+            col.push_back(W[index]);
+        }
+        Ciphertext<DCRTPoly> val = cc->EvalLinearWSum(m1, col);
+        output.push_back(val);
+    }
+
+    return output;
 }
 
 vector<string> split(const string &s, char delim) {
@@ -474,9 +533,20 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     return yhat;
 }
 
+// vector<Ciphertext<DCRTPoly>> crypted_predict(CryptoContext<DCRTPoly> cc, vector<Ciphertext<DCRTPoly>> X, vector<Ciphertext<DCRTPoly>> y, vector<vector<float>> weights) {
+//     cout << "Making the predictions ...\n";
+
+//     // Feed forward
+//     vector<Ciphertext<DCRTPoly>> a1 = crypted_relu(crypted_dot(cc, X, weights[0], 784, 128 ));
+//     vector<Ciphertext<DCRTPoly>> a2 = crypted_relu(crypted_dot(cc, a1, weights[1], 128, 64 ));
+//     vector<Ciphertext<DCRTPoly>> yhat = crypted_softmax(crypted_dot(cc, a2, weights[2], 64, 10 ), 10);
+
+//     return yhat;
+// }
+
 int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
-    vector<CryptoContext<DCRTPoly>> input;
+    vector<Ciphertext<DCRTPoly>> input;
 
     if(argc != 2) {
         std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test.\n" << std::endl;
@@ -484,10 +554,6 @@ int main(int argc, const char * argv[]) {
     }
 
     string func = argv[1];
-    // int points;
-    // sscanf(argv[2], "%d", &points);
-    // if(points > 784 || points < 0)
-    //     cout << "Wrong input value!\nMust use a number between 0 and 784.\n";
 
     if(func == "train") {
         pair<vector<float>,vector<float>> train_data = load_weights("files/train.txt");
@@ -511,12 +577,14 @@ int main(int argc, const char * argv[]) {
         cout << "Reading inputs from file ...\n";
 
         if (!Serial::DeserializeFromFile(INPUT_PATH, input, SerType::BINARY)) {
-            std::cerr << "Cannot read weiths from " << INPUT_PATH << std::endl;
+            std::cerr << "Cannot read inputs from " << INPUT_PATH << std::endl;
             std::exit(1);
         }
+
+        auto tupleCryptoContext_KeyPair = clientProcess();
+        CryptoContext<DCRTPoly> cc = tupleCryptoContext_KeyPair.first;
         
-        vector<float> vec (784, 2.0);
-        crypted_dot(input, vec);
+        crypted_dot(cc, input, weights[0], 784, 128);
     }else {
         std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
