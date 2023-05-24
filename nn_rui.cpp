@@ -30,6 +30,7 @@ using namespace std;
 using namespace lbcrypto;
 
 #define WEIGHTS_PATH "files/serialized_weights.txt"
+#define INPUT_PATH "files/creypted_X_input.txt"
 #define BATCH_SIZE 256
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
@@ -300,6 +301,15 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
     return output;
 }
 
+void crypted_dot (vector<CryptoContext<DCRTPoly>> &m1, vector<float> &m2) {
+    int output_rows = m1.size();
+    int output_cols = 1;
+    vector<CryptoContext<DCRTPoly>> output (output_rows*output_cols);
+
+    
+
+}
+
 vector<string> split(const string &s, char delim) {
     stringstream ss(s);
     string item;
@@ -310,7 +320,7 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-pair<vector<float>,vector<float>> load_data(string path) {
+pair<vector<float>,vector<float>> load_weights(string path) {
     string line;
     vector<string> line_v;
 
@@ -466,16 +476,21 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
 
 int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
+    vector<CryptoContext<DCRTPoly>> input;
 
     if(argc != 2) {
-        std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test\n" << std::endl;
+        std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test.\n" << std::endl;
         std::exit(1);
     }
 
     string func = argv[1];
+    // int points;
+    // sscanf(argv[2], "%d", &points);
+    // if(points > 784 || points < 0)
+    //     cout << "Wrong input value!\nMust use a number between 0 and 784.\n";
 
     if(func == "train") {
-        pair<vector<float>,vector<float>> train_data = load_data("files/train.txt");
+        pair<vector<float>,vector<float>> train_data = load_weights("files/train.txt");
 
         weights = train_model(train_data.first, train_data.second);
 
@@ -493,9 +508,15 @@ int main(int argc, const char * argv[]) {
             std::exit(1);
         }
 
-        pair<vector<float>,vector<float>> test_data = load_data("files/train.txt");
+        cout << "Reading inputs from file ...\n";
 
-        vector<float> yhat = predict(test_data.first, test_data.second, weights);
+        if (!Serial::DeserializeFromFile(INPUT_PATH, input, SerType::BINARY)) {
+            std::cerr << "Cannot read weiths from " << INPUT_PATH << std::endl;
+            std::exit(1);
+        }
+        
+        vector<float> vec (784, 2.0);
+        crypted_dot(input, vec);
     }else {
         std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);

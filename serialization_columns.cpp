@@ -36,7 +36,7 @@ vector<string> split(const string &s, char delim) {     //ADICIONADO
 // std::string DATAFOLDER = std::string(getcwd(buff, 1024));
 
 // Save-Load locations for keys
-const std::string DATAFOLDER = "demoData";
+const std::string DATAFOLDER = "files/demoData";
 std::string ccLocation       = "/cryptocontext.txt";
 std::string pubKeyLocation   = "/key_pub.txt";   // Pub key
 std::string secKeyLocation   = "/key_sec.txt";   // Sec key
@@ -100,7 +100,7 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
     //vector<double> X_train_c;
     vector<vector<double> > X_train_c(784);
     vector<double> y_train;
-    std::ifstream myfile ("train.txt");
+    std::ifstream myfile ("files/train.txt");
     string line;
     vector<string> line_v;
     unsigned int j = 0;
