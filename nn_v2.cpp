@@ -81,34 +81,6 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
         std::exit(1);
     }
 
-    // até aqui são chaves para fazer as operações
-
-    Ciphertext<DCRTPoly> client_X_input;
-    if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)
-        std::cerr << "Cannot read serialization from " << DATAFOLDER + "/crypted_X_input.txt" << std::endl;
-        std::exit(1);
-    }
-
-    std::cout << "Deserialized cryted_X_Input" << '\n' << std::endl;
-
-    //-----------------------------------------------------------------------------------------------------------------
-
-    auto nn_output   = clientCC->EvalMult(client_X_input, client_X_input);  //aqui pode-se multiplicar os pesos
-    //auto add_result    = clientCC->EvalAdd(clientC1, clientC2);             //ex: soma
-    //auto rotate_result_positive    = clientCC->EvalRotate(clientC1, 1);     //ex: rotação positiva
-    //auto rotate_result_negative = clientCC->EvalRotate(clientC1, -1);       //ex: rotação negativa        ESTÃO EM COMENTÁRIO PQ NÃO SÃO USADAS E DEPOIS DÁ WARNING
-
-    // Now, we want to simulate a client who is encrypting data for the server to
-    // decrypt. E.g weights of a machine learning algorithm
-
-    //std::vector<std::complex<double>> clientVector1 = {1.0, 2.0, 3.0, 4.0};                             //ex de ficheiro de saida
-    //auto clientPlaintext1                           = clientCC->MakeCKKSPackedPlaintext(clientVector1);
-    //auto clientInitiatedEncryption                  = clientCC->Encrypt(clientPublicKey, clientPlaintext1);
-    //Serial::SerializeToFile(DATAFOLDER + "/nn_output.txt", clientInitiatedEncryption , SerType::BINARY);
-
-    Serial::SerializeToFile(DATAFOLDER + "/nn_output.txt", nn_output , SerType::BINARY);// ex de escrita do ficheiro de output da nn encriptado, a ser depois lido pelo codigo de desencriptação
-
-    std::cout << "Serialized all ciphertexts from client" << '\n' << std::endl;
 
     return std::make_tuple(clientCC, clientKP);
 }
@@ -381,31 +353,58 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
     return output;
 }
 
+// vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vector <float> &m2, const int m1_rows, const int m1_columns, const int m2_columns, CryptoContext<DCRTPoly> cc) {
+    
+
+//     vector <Ciphertext<DCRTPoly>> output (m1_rows*m2_columns);
+
+//     vector <double> temp (m1_columns);
+
+    
+//     int i = 0;
+//     int q = 0;
+//     while (i!= m2_columns){ //enquanto houver multiplicações imagem-coluna de pesos a fazer
+
+//         q=0;
+//         while (q!=m1_columns){ //m1_columns = m2_rows, enquanto não se chegar à ultima linha da matriz de pesos
+//             temp[q] = m2[q*m2_columns + i];
+//             q++;
+//         }
+
+//         // Ciphertext<DCRTPoly> cMul = cc->EvalMult(m1, temp);
+
+//         // output[i] = cMul;
+
+//         i++;
+//     }
+
+
+//     return output;
+// }
+
+
 vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vector <float> &m2, const int m1_rows, const int m1_columns, const int m2_columns, CryptoContext<DCRTPoly> cc) {
     
-
-    vector <Ciphertext<DCRTPoly>> output (m1_rows*m2_columns);
-
+    vector <Ciphertext<DCRTPoly>> output (m2_columns);
     vector <double> temp (m1_columns);
 
-    
     int i = 0;
     int q = 0;
-    while (i!= m2_columns){ //enquanto houver multiplicações imagem-coluna de pesos a fazer
+    while (i!= m2_columns){ 
 
-        q=0;
-        while (q!=m1_columns){ //m1_columns = m2_rows, enquanto não se chegar à ultima linha da matriz de pesos
-            temp[q] = m2[q*m2_columns + i];
-            q++;
+        q = 0;
+        while (q!=m1_columns){
+            temp[q] = m2[i+q*m2_columns];
+            q = q + 1;
         }
 
-        // Ciphertext<DCRTPoly> cMul = cc->EvalMult(m1, temp);
-
-        // output[i] = cMul;
+        
+        //output[i] = cc->EvalLinearWSum(m1, temp);
 
         i++;
     }
 
+    // std::cout << temp << '\n' << std::endl;
 
     return output;
 }
