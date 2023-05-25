@@ -104,18 +104,18 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> serverSetupAndWrite(int m
             unsigned int digit = strtof((line_v[0]).c_str(),0);
 
             y_train.push_back(digit);
-            std::cout << "y:" << y_train[j] << std::endl;
+            // std::cout << "y:" << y_train[j] << std::endl;
                 
             unsigned int size = static_cast<int>(line_v.size());
             for (unsigned i = 1; i < size; ++i) {
                 X_train_c[i-1].push_back(strtof((line_v[i]).c_str(),0));
             }
             j++;
-            std::cout << "j:" << j << std::endl;
+            // std::cout << "j:" << j << std::endl;
         }
-        /*for(unsigned i = 0; i<X_train.size(); i++){
+        for(unsigned i = 0; i<X_train.size(); i++){
             X_train[i] = X_train[i]/255.0;
-        }*/
+        }
         myfile.close();
     }
 

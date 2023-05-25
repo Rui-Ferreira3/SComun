@@ -388,6 +388,12 @@ vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vec
     vector <Ciphertext<DCRTPoly>> output (m2_columns);
     vector <double> temp (m1_columns);
 
+    vector<ConstCiphertext<DCRTPoly>> ciphertextVec;
+
+    for (int i = 0; i < m1_columns; ++i) {
+        ciphertextVec.push_back(m1[i]);
+    }
+
     int i = 0;
     int q = 0;
     while (i!= m2_columns){ 
@@ -400,12 +406,17 @@ vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vec
 
         
         //output[i] = cc->EvalLinearWSum(m1, temp);
+        //auto mul = cc->EvalMult(m1[i],5);
+        auto mul = cc->EvalLinearWSum(ciphertextVec, temp);
+        output[i] = mul;
+
+        std::cout << i << "batata" << '\n' << std::endl;
 
         i++;
     }
 
     // std::cout << temp << '\n' << std::endl;
-
+    // std::cout << m1 << '\n' << std::endl;
     return output;
 }
 
@@ -562,6 +573,8 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     vector<float> a1 = relu(dot( b_X, W1, BATCH_SIZE, 784, 128 ));
     vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
     vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
+
+    // std::cout << dot( a2, W3, BATCH_SIZE, 64, 10 ) << '\n' << std::endl;
         
     vector<float> loss_m = yhat - b_y;
     float loss = 0.0;
@@ -587,7 +600,17 @@ void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, Crypto
     vector<Ciphertext<DCRTPoly>> a2 = (dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ));
     vector<Ciphertext<DCRTPoly>> a3 = (dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc ));
         
-    std::cout << a3 << '\n' << std::endl;
+    // std::cout << a3 << '\n' << std::endl;
+
+    if (!Serial::SerializeToFile(DATAFOLDER + "/enc_output.txt", a3, SerType::BINARY)) {
+        std::cerr << "No good during output save" << std::endl;
+        std::exit(1);
+    }
+    else{
+        std::cerr << "Very good during output save" << std::endl;
+    }
+
+
 }
 
 int main(int argc, const char * argv[]) {
@@ -631,10 +654,14 @@ int main(int argc, const char * argv[]) {
             std::exit(1);
         }
 
-        std::cout << "batata" << '\n' << std::endl;
 
         auto tupleCryptoContext_KeyPair = clientProcess();
         auto cc                         = std::get<0>(tupleCryptoContext_KeyPair);
+
+        // cc->Enable(PKE);
+        // cc->Enable(KEYSWITCH);
+        // cc->Enable(LEVELEDSHE);
+        cc->Enable(ADVANCEDSHE);
 
         vector <Ciphertext<DCRTPoly>> client_X_input;
         if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)

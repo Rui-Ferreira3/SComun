@@ -109,47 +109,69 @@ int serverVerification() {
     //-----------------------------------------------
     
     std::vector<Ciphertext<DCRTPoly>> crypted_images_vec;
-    Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", crypted_images_vec, SerType::BINARY);
+    Serial::DeserializeFromFile(DATAFOLDER + "/enc_output.txt", crypted_images_vec, SerType::BINARY);
 
     //Plaintext images_pt;
-    std::vector<Plaintext> images_pt(784);
+    std::vector<Plaintext> images_pt(10);
 
-    for(unsigned int i=0; i < 784; i++){
+    for(unsigned int i=0; i < 10; i++){
         decoder_CC->Decrypt(decoder_SecretKey, crypted_images_vec[i], &images_pt[i]);
         images_pt[i]->SetLength(vectorSize);
     }
 
     std::cout << "images decrypted:" << '\n' << std::endl;
 
-    vector<vector<double> > images(784);
+    vector<vector<double> > images(10);
+    vector <int> best_class (8192);
+    vector <double> best_output (8192);
 
-    for(unsigned int i=0; i < 784; i++){
+    for(unsigned int i=0; i < 10; i++){
         images[i] = images_pt[i]->GetRealPackedValue();
     }
 
-    for (unsigned int j = 0; j < 784; j++){
-        for(unsigned int i=0; i < 8192; i++){
-            if(images[j][i] < 0.001)
-                images[j][i] = 0;
+    // std::cout << images[0] << '\n' << std::endl;
+
+    int i = 0;
+    int q = 0;
+    while (i!=10){
+        q = 0;
+        while (q!=8192){
+            if (images[i][q]>best_output[q]){
+                best_output[q] = images[i][q];
+                best_class[q] = i;
+            }
+
+            q = q + 1;
         }
+        
+        i = i + 1;
     }
 
-    std::cout << images[370] << '\n' << std::endl;
+
+    std::cout << best_class << '\n' << std::endl;
+
+    vector<double> Y_truth;
+    Serial::DeserializeFromFile(DATAFOLDER + "/Y_truth.txt", Y_truth, SerType::BINARY);
+    std::cout << Y_truth << '\n' << std::endl;
+
+    q = 0;
+    int acertos = 0;
+    while (q!= 8192){
+        if (best_class[q] == Y_truth[q]){
+            acertos = acertos + 1;
+        }
+
+        q = q + 1;
+    }
     
     //-----------------------------------------------
 
+    std::cout << acertos <<" acertos em 8192" << '\n' << std::endl;
+
+
+
     std::cout << "Deserialized all data from client on server" << '\n' << std::endl;
 
-    demarcate("Part 5: Correctness verification");
-
-    //Plaintext nn_res_pt;
-
-    //decoder_CC->Decrypt(decoder_SecretKey, nn_res, &nn_res_pt);
-
-    //nn_res_pt->SetLength(vectorSize);
-
-
-    //return std::make_tuple(images_pt);
     return 0;
 }
 int main() {
@@ -158,16 +180,7 @@ int main() {
 
     demarcate("Part 4: Server deserialization of data from client. ");
 
-    //auto tupleRes  = serverVerification();
     auto value  = serverVerification();
-    //auto nn_res_pt   = std::get<0>(tupleRes);
-
-    //auto nn_res = nn_res_pt->GetRealPackedValue();
-
-    /*for (int k = 0; k < 784; ++k){
-        if(nn_res[k] < 0.1)
-            nn_res[k] = 0;
-    }*/
 
     demarcate("Decrypted NN result:");
     std::cout << value << std::endl;
