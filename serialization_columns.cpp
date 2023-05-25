@@ -36,7 +36,7 @@ vector<string> split(const string &s, char delim) {     //ADICIONADO
 // std::string DATAFOLDER = std::string(getcwd(buff, 1024));
 
 // Save-Load locations for keys
-const std::string DATAFOLDER = "files/demoData";
+const std::string DATAFOLDER = "demoData";
 std::string ccLocation       = "/cryptocontext.txt";
 std::string pubKeyLocation   = "/key_pub.txt";   // Pub key
 std::string secKeyLocation   = "/key_sec.txt";   // Sec key
@@ -62,8 +62,8 @@ std::string clientVectorLocation = "/ciphertextVectorFromClient.txt";
  * @return Tuple<cryptoContext, keyPair>
  */
 
-std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(int multDepth, int scaleModSize,
-                                                                                int batchSize) {
+std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> serverSetupAndWrite(int multDepth, int scaleModSize,
+                                                                                int batchSize, unsigned int image_number) {
     CCParams<CryptoContextCKKSRNS> parameters;
     parameters.SetMultiplicativeDepth(multDepth);
     parameters.SetScalingModSize(scaleModSize);
@@ -84,30 +84,21 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
     std::cout << "Eval Mult Keys/ Relinearization keys have been generated" << std::endl;
 
     serverCC->EvalRotateKeyGen(serverKP.secretKey, {1, 2, -1, -2});
-    std::cout << "Rotation keys generated" << std::endl;
-
-    std::vector<std::complex<double>> vec1 = {1.0, 2.0, 3.0, 4.0};
-
-    for (auto& v : vec1) {
-        std::cout << v << ',';
-    }
-
-    std::cout << '\n' << std::endl;
+    std::cout << "Rotation keys generated\n" << std::endl;
 
     //-----------------------------------------------------------------------------------------------------------------
 
     vector<double> X_train;
-    //vector<double> X_train_c;
     vector<vector<double> > X_train_c(784);
     vector<double> y_train;
-    std::ifstream myfile ("files/train.txt");
+    std::ifstream myfile ("train.txt");
     string line;
     vector<string> line_v;
     unsigned int j = 0;
 
     if (myfile.is_open())
     {
-        while ( getline (myfile,line) && j<8192)
+        while ( getline (myfile,line) && j<image_number)
         {
             line_v = split(line, '\t');
             unsigned int digit = strtof((line_v[0]).c_str(),0);
@@ -131,7 +122,9 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
         myfile.close();
     }
 
-    std::cout << "Works 1 (?)\n" << std::endl;
+    std::cout << "Read from train.txt\n" << std::endl;
+
+    std::cout << "Crypting images matrix" << std::flush;
 
     vector<Plaintext> serverP_X_train;
     std::vector<Ciphertext<DCRTPoly>> crypted_images_vec;
@@ -139,9 +132,11 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
     for(unsigned j = 0; j<784; j++){
         serverP_X_train.push_back(serverCC->MakeCKKSPackedPlaintext(X_train_c[j]));
         crypted_images_vec.push_back(serverCC->Encrypt(serverKP.publicKey, serverP_X_train[j]));
+        if(j % 100 == 0 && j!=0)
+            std::cout << "." << std::flush;
     }
 
-    std::cout << "Works 2 (?)\n" << std::endl;
+    std::cout << "\n\nCrypted images matrix\n" << std::endl;
 
     /*
    * Part 2:
@@ -222,10 +217,10 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>, int> serverSetupAndWrite(
 
 
 
-    return std::make_tuple(serverCC, serverKP, vec1.size());
+    return std::make_tuple(serverCC, serverKP);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     std::cout << "This program requires the subdirectory `" << DATAFOLDER << "' to exist, otherwise you will get "
               << "an error writing serializations.\n" << std::endl;
 
@@ -235,12 +230,26 @@ int main() {
     const int scaleModSize = 40;
     const usint batchSize  = 8192;
 
+    if(argc < 2){
+        std::cout << "(ERROR: no arguments given) Specify number of images to encrypt and serialize plz" << std::endl;
+        return -1;
+    }
+
+    const unsigned int image_number = atoi(argv[1]);
+
+    if(image_number > 8192){
+        std::cout << "(ERROR: image amount too big) PLease choose a number between 1 and 8192" << std::endl;
+        return -1;
+    }
+
+    std::cout << "Number of images to be crypted and serialized: " << image_number << "\n" << std::endl;
+
     const int cryptoContextIdx = 0;
     const int keyPairIdx       = 1;
 
     std::cout << "Part 1: Cryptocontext generation, key generation, data encryption\n" << std::endl;
 
-    auto tupleCryptoContext_KeyPair = serverSetupAndWrite(multDepth, scaleModSize, batchSize);
+    auto tupleCryptoContext_KeyPair = serverSetupAndWrite(multDepth, scaleModSize, batchSize, image_number);
     auto cc                         = std::get<cryptoContextIdx>(tupleCryptoContext_KeyPair);
     auto kp                         = std::get<keyPairIdx>(tupleCryptoContext_KeyPair);
 
