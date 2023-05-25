@@ -102,19 +102,16 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> serverSetupAndWrite(int m
         {
             line_v = split(line, '\t');
             unsigned int digit = strtof((line_v[0]).c_str(),0);
-            for (unsigned i = 0; i < 10; ++i) {
-                if (i == digit)
-                {
-                    y_train.push_back(1.);
-                }
-                else y_train.push_back(0.);
-            }
-            
+
+            y_train.push_back(digit);
+            std::cout << "y:" << y_train[j] << std::endl;
+                
             unsigned int size = static_cast<int>(line_v.size());
             for (unsigned i = 1; i < size; ++i) {
                 X_train_c[i-1].push_back(strtof((line_v[i]).c_str(),0));
             }
             j++;
+            std::cout << "j:" << j << std::endl;
         }
         /*for(unsigned i = 0; i<X_train.size(); i++){
             X_train[i] = X_train[i]/255.0;
@@ -205,17 +202,16 @@ std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> serverSetupAndWrite(int m
     }
     std::cout << "Input vectors have been serialized" << std::endl;
 
+    if (!Serial::SerializeToFile(DATAFOLDER + "/Y_truth.txt", y_train, SerType::BINARY)) {
+        std::cerr << " Error writing Y_truth" << std::endl;
+    }
+    std::cout << "Truth vector has been serialized" << std::endl;
 
     /*std::ofstream file("demoData/TestPath.txt");
     {
         cereal::PortableBinaryOutputArchive Archive(file);
         Archive(crypted_images_vec);
     }*/
-
-    std::cout << "Input vectors have been serialized" << std::endl;
-
-
-
 
     return std::make_tuple(serverCC, serverKP);
 }
