@@ -31,6 +31,7 @@ using namespace lbcrypto;
 
 #define WEIGHTS_PATH "files/serialized_weights.txt"
 #define INPUT_PATH "files/crypted_X_input.txt"
+#define OUTPUT_PATH "files/crypted_input.txt"
 
 #define ccLocation "files/demoData/cryptocontext.txt"
 #define pubKeyLocation "files/demoData/key_pub.txt"   // Pub key
@@ -115,6 +116,16 @@ vector <float> relu(const vector <float>& z){
             output.push_back(0.0);
         }
         else output.push_back(z[i]);
+    }
+    return output;
+}
+
+vector<Ciphertext<DCRTPoly>> crypted_relu (CryptoContext<DCRTPoly> cc, const vector<Ciphertext<DCRTPoly>> &z) {
+    int size = z.size();
+    vector<Ciphertext<DCRTPoly>> output;
+
+    for(int i=0; i<size; i++) {
+        
     }
     return output;
 }
@@ -355,14 +366,18 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
 vector<Ciphertext<DCRTPoly>> crypted_dot (CryptoContext<DCRTPoly> cc, const vector<Ciphertext<DCRTPoly>> &m1, const vector<float> &W, int num_rows, int num_cols) {
     vector<Ciphertext<DCRTPoly>> output;
 
+    vector<ConstCiphertext<DCRTPoly>> inVec;
+    for (int i = 0; i < num_rows; ++i) {
+        inVec.push_back(m1[i]);
+    }
 
     for(int j=0; j<num_cols; j++) {
-        vector<float> col;
+        vector<double> col;
         for(int i=0; i<num_rows; i++) {
             int index = num_rows*i + j;
             col.push_back(W[index]);
         }
-        Ciphertext<DCRTPoly> val = cc->EvalLinearWSum(m1, col);
+        auto val = cc->EvalLinearWSum(inVec, col);
         output.push_back(val);
     }
 
@@ -424,7 +439,7 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
     vector <float> W3 = random_vector(64*10);
 
     // Initialization of best weights and loss
-    float best_loss = 1.0;
+    float best_accuracy = 0.0;
     vector <float> best_W1 = W1;
     vector <float> best_W2 = W2;
     vector <float> best_W3 = W3;
@@ -479,15 +494,30 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
             for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
                 loss += loss_m[k]*loss_m[k];
             }
-            cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
+            cout << "                                                Loss " << loss/BATCH_SIZE <<"\n";
+            float max = 0.0, accuracy = 0.0;
+            int max_idx = 0;
+            for(int k=0; k<BATCH_SIZE*10; k++) {
+                if(k%10==0) {
+                    if(b_y[max_idx] == 1)
+                        accuracy += 1.0;
+                    max = 0.0;
+                }
+                if(yhat[k]>max) {
+                    max = yhat[k];
+                    max_idx = k;
+                }
+            }
+            cout << "                                            Accuracy " << accuracy/BATCH_SIZE <<"\n";
             // Upating the best parameters
-            if(loss/BATCH_SIZE < best_loss){
+            if(accuracy/BATCH_SIZE > best_accuracy){
                 cout << "Updating weights ...\n";
-                best_loss = loss/BATCH_SIZE;
+                best_accuracy = accuracy/BATCH_SIZE;
                 best_W1 = W1;
                 best_W2 = W2;
                 best_W2 = W2;
             }
+            cout << "                                       Best Accuracy " << best_accuracy <<"\n";
             cout << "--------------------------------------------End of Epoch :(------------------------------------------------" <<"\n";
         };
     };
@@ -533,23 +563,31 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     return yhat;
 }
 
-// vector<Ciphertext<DCRTPoly>> crypted_predict(CryptoContext<DCRTPoly> cc, vector<Ciphertext<DCRTPoly>> X, vector<Ciphertext<DCRTPoly>> y, vector<vector<float>> weights) {
-//     cout << "Making the predictions ...\n";
+void crypted_predict(CryptoContext<DCRTPoly> cc, vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, int num_img) {
+    cout << "Making the predictions ...\n";
 
-//     // Feed forward
-//     vector<Ciphertext<DCRTPoly>> a1 = crypted_relu(crypted_dot(cc, X, weights[0], 784, 128 ));
-//     vector<Ciphertext<DCRTPoly>> a2 = crypted_relu(crypted_dot(cc, a1, weights[1], 128, 64 ));
-//     vector<Ciphertext<DCRTPoly>> yhat = crypted_softmax(crypted_dot(cc, a2, weights[2], 64, 10 ), 10);
+    // Feed forward
+    // vector<Ciphertext<DCRTPoly>> a1 = crypted_relu(cc, crypted_dot(cc, X, weights[0], 784, 128 ));
+    // vector<Ciphertext<DCRTPoly>> a2 = crypted_relu(cc, crypted_dot(cc, a1, weights[1], 128, 64 ));
+    // vector<Ciphertext<DCRTPoly>> yhat = crypted_softmax(crypted_dot(cc, a2, weights[2], 64, 10 ), 10);
+    vector<Ciphertext<DCRTPoly>> a1 = crypted_dot(cc, X, weights[0], num_img, 128 );
+    vector<Ciphertext<DCRTPoly>> a2 = crypted_dot(cc, a1, weights[1], 128, 64 );
+    vector<Ciphertext<DCRTPoly>> yhat = crypted_dot(cc, a2, weights[2], 64, 10 );
 
-//     return yhat;
-// }
+    cout << "Saving nn output ..." << endl;
+
+    if (!Serial::SerializeToFile(OUTPUT_PATH, yhat, SerType::BINARY)) {
+        std::cerr << "No good during output save" << std::endl;
+        std::exit(1);
+    }
+}
 
 int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
     vector<Ciphertext<DCRTPoly>> input;
 
     if(argc != 2) {
-        std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test.\n" << std::endl;
+        std::cerr << "Wrong number of arguments!\nExpecting two arguments: \"train\" or \"test\".\n" << std::endl;
         std::exit(1);
     }
 
@@ -567,6 +605,12 @@ int main(int argc, const char * argv[]) {
             std::exit(1);
         }
     }else if(func == "test") {
+        if(argc != 3) {
+            std::cerr << "Wrong number of arguments!\nExpecting two arguments: \"train\" or \"test\" and number of images to evaluate.\n" << std::endl;
+            std::exit(1);
+        }
+        const unsigned int num_img = atoi(argv[1]);
+
         cout << "Reading weights from file ...\n";
 
         if (!Serial::DeserializeFromFile(WEIGHTS_PATH, weights, SerType::BINARY)) {
@@ -584,7 +628,7 @@ int main(int argc, const char * argv[]) {
         auto tupleCryptoContext_KeyPair = clientProcess();
         CryptoContext<DCRTPoly> cc = tupleCryptoContext_KeyPair.first;
         
-        crypted_dot(cc, input, weights[0], 784, 128);
+        crypted_predict(cc, input, weights, num_img);
     }else {
         std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
