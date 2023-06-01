@@ -656,6 +656,7 @@ void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, Crypto
         a3 = dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc );
     }
     
+    //cheby
         
 
     if (!Serial::SerializeToFile(DATAFOLDER + "/enc_output.txt", a3, SerType::BINARY)) {
