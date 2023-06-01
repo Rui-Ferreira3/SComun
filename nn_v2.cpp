@@ -30,7 +30,7 @@ using namespace std;
 using namespace lbcrypto;
 
 #define WEIGHTS_PATH "files/serialized_weights.txt"
-#define BATCH_SIZE 256
+#define BATCH_SIZE 128
 #define BATCH_SIZE_E 8192
 
 const std::string DATAFOLDER = "demoData"; // nome da pasta
@@ -543,12 +543,51 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
         };
     };
 
+    std::cout << best_loss << '\n' << std::endl;
+
     vector<vector<float>> weights;
     weights.push_back(W1);
     weights.push_back(W2);
     weights.push_back(W3);
 
     return weights;
+}
+
+double small_relu(double z){
+    double output;
+
+    if (z < 0){
+        output = 0;
+    }
+    else{
+        output = z;
+    }
+
+    return output;
+}
+
+vector<Ciphertext<DCRTPoly>> cipherRelu(vector<Ciphertext<DCRTPoly>> X, CryptoContext<DCRTPoly> cc, const int cols) {
+
+    double lowerBound = -10;
+    double upperBound = 10;
+
+    int polyDegree = 10;
+
+
+    vector<Ciphertext<DCRTPoly>> resultAll;
+    std::cout << X.size() << '\n' << std::endl;
+    int i = 0;
+    while (i < cols){
+
+
+        auto resultC = cc->EvalChebyshevFunction([](double x) -> double {return small_relu(x);}, X[i], lowerBound, upperBound, polyDegree);
+
+        resultAll.push_back(resultC);
+
+        i = i + 1;
+    }
+
+    return resultAll;
 }
 
 vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> weights) {
@@ -574,8 +613,14 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
     vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
 
+
+    // std::cout << (dot( b_X, W1, BATCH_SIZE, 784, 128 )) << '\n' << std::endl;
+    // std::cout << (dot( a1, W2, BATCH_SIZE, 128, 64 )) << '\n' << std::endl;
+    // std::cout << (dot( a2, W3, BATCH_SIZE, 64, 10 )) << '\n' << std::endl;
+
     // std::cout << dot( a2, W3, BATCH_SIZE, 64, 10 ) << '\n' << std::endl;
-        
+    
+
     vector<float> loss_m = yhat - b_y;
     float loss = 0.0;
     for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
@@ -586,7 +631,7 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     return yhat;
 }
 
-void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, CryptoContext<DCRTPoly> cc) {
+void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, CryptoContext<DCRTPoly> cc, int mode) {
     vector<float> W1 = weights[0];
     vector<float> W2 = weights[1];
     vector<float> W3 = weights[2];
@@ -596,11 +641,22 @@ void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, Crypto
     // X[0] uma coluna com o 1 pixel de 8k imagens
 
     // Feed forward
-    vector<Ciphertext<DCRTPoly>> a1 = (dotE( X, W1, BATCH_SIZE_E, 784, 128, cc ));
-    vector<Ciphertext<DCRTPoly>> a2 = (dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ));
-    vector<Ciphertext<DCRTPoly>> a3 = (dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc ));
+    vector<Ciphertext<DCRTPoly>> a1;
+    vector<Ciphertext<DCRTPoly>> a2;
+    vector<Ciphertext<DCRTPoly>> a3;
+
+    if (mode==0){
+        a1 = (dotE( X, W1, BATCH_SIZE_E, 784, 128, cc ));
+        a2 = (dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ));
+        a3 = (dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc ));
+    }
+    if (mode==1){
+        a1 = cipherRelu(dotE( X, W1, BATCH_SIZE_E, 784, 128, cc ), cc, 128);
+        a2 = cipherRelu(dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ), cc, 64);
+        a3 = dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc );
+    }
+    
         
-    // std::cout << a3 << '\n' << std::endl;
 
     if (!Serial::SerializeToFile(DATAFOLDER + "/enc_output.txt", a3, SerType::BINARY)) {
         std::cerr << "No good during output save" << std::endl;
@@ -616,12 +672,13 @@ void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, Crypto
 int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
 
-    if(argc != 2) {
+    if(argc != 3) {
         std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
     }
 
     string func = argv[1];
+    int mode = atoi(argv[2]);
 
     if(func == "train") {
         pair<vector<float>,vector<float>> train_data = load_data("files/train.txt");
@@ -669,7 +726,7 @@ int main(int argc, const char * argv[]) {
             std::exit(1);
         }
 
-        infer(client_X_input, weights, cc);
+        infer(client_X_input, weights, cc, mode);
 
     }else {
         std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
