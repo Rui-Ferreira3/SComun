@@ -394,7 +394,7 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-pair<vector<float>,vector<float>> load_weights(string path) {
+pair<vector<float>,vector<float>> load_data(string path) {
     string line;
     vector<string> line_v;
 
@@ -496,18 +496,20 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
             }
             cout << "                                                Loss " << loss/BATCH_SIZE <<"\n";
             float max = 0.0, accuracy = 0.0;
-            int max_idx = 0;
-            for(int k=0; k<BATCH_SIZE*10; k++) {
-                if(k%10==0) {
-                    if(b_y[max_idx] == 1)
-                        accuracy += 1.0;
-                    max = 0.0;
+            int max_idx=0;
+            for(int k=0; k<BATCH_SIZE; k++) {
+                for(int l=0; l<10; l++) {
+                    if(yhat[k*10 + l]>max) {
+                        max_idx = l;
+                        max = yhat[k*10 + max_idx];
+                    }
                 }
-                if(yhat[k]>max) {
-                    max = yhat[k];
-                    max_idx = k;
-                }
+                if(b_y[k*10 + max_idx] == 1)
+                    accuracy += 1.0;
+                max = 0.0;
+                cout << max_idx << " ";
             }
+            cout << endl;
             cout << "                                            Accuracy " << accuracy/BATCH_SIZE <<"\n";
             // Upating the best parameters
             if(accuracy/BATCH_SIZE > best_accuracy){
@@ -594,7 +596,7 @@ int main(int argc, const char * argv[]) {
     string func = argv[1];
 
     if(func == "train") {
-        pair<vector<float>,vector<float>> train_data = load_weights("files/train.txt");
+        pair<vector<float>,vector<float>> train_data = load_data("files/train.txt");
 
         weights = train_model(train_data.first, train_data.second);
 
