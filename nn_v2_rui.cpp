@@ -30,15 +30,8 @@ using namespace std;
 using namespace lbcrypto;
 
 #define WEIGHTS_PATH "files/serialized_weights.txt"
-#define INPUT_PATH "files/demoData/crypted_X_input.txt"
-#define OUTPUT_PATH "files/demoData/crypted_input.txt"
-
-#define ccLocation "files/demoData/cryptocontext.txt"
-#define pubKeyLocation "files/demoData/key_pub.txt"   // Pub key
-#define multKeyLocation "files/demoData/key_mult.txt"  // relinearization key
-#define rotKeyLocation "files/demoData/key_rot.txt"   // automorphism / rotation key
-
-#define BATCH_SIZE 256
+#define BATCH_SIZE 128
+#define BATCH_SIZE_E 8192
 
 #define PBSTR "============================================================"
 #define PBWIDTH 60
@@ -48,53 +41,60 @@ void printProgress(double value, double total) {
     int val = (int) (percentage * 100);
     int lpad = (int) (percentage * PBWIDTH);
     int rpad = PBWIDTH - lpad;
-    printf("\r%3d%% [%.*s%*s]", val, lpad, PBSTR, rpad, "");
+    printf("\r%3d%% - %d of %d [%.*s%*s]", val, (int) value, (int) total, lpad, PBSTR, rpad, "");
     fflush(stdout);
 }
 
-pair<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
+const std::string DATAFOLDER = "files/demoData"; // nome da pasta
+std::string ccLocation       = "/cryptocontext.txt";
+std::string pubKeyLocation   = "/key_pub.txt";   // Pub key
+std::string multKeyLocation  = "/key_mult.txt";  // relinearization key
+std::string rotKeyLocation   = "/key_rot.txt";   // automorphism / rotation key
+
+std::tuple<CryptoContext<DCRTPoly>, KeyPair<DCRTPoly>> clientProcess() {
 
     CryptoContext<DCRTPoly> clientCC;
     clientCC->ClearEvalMultKeys();
     clientCC->ClearEvalAutomorphismKeys();
     lbcrypto::CryptoContextFactory<lbcrypto::DCRTPoly>::ReleaseAllContexts();
-    if (!Serial::DeserializeFromFile(ccLocation, clientCC, SerType::BINARY)) {
-        std::cerr << "I cannot read serialized data from: " << ccLocation << std::endl;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + ccLocation, clientCC, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " << DATAFOLDER << "/cryptocontext.txt" << std::endl;
         std::exit(1);
     }
-    std::cout << "Client CC deserialized!" << endl;
+    std::cout << "Client CC deserialized" << '\n' << std::endl;
 
     KeyPair<DCRTPoly> clientKP;  // We do NOT have a secret key. The client
     // should not have access to this
     PublicKey<DCRTPoly> clientPublicKey;
-    if (!Serial::DeserializeFromFile(pubKeyLocation, clientPublicKey, SerType::BINARY)) {
-        std::cerr << "I cannot read serialized data from: " pubKeyLocation << std::endl;
+    if (!Serial::DeserializeFromFile(DATAFOLDER + pubKeyLocation, clientPublicKey, SerType::BINARY)) {
+        std::cerr << "I cannot read serialized data from: " << DATAFOLDER << "/cryptocontext.txt" << std::endl;
         std::exit(1);
     }
-    std::cout << "Client KP deserialized!\n" << endl;
+    std::cout << "Client KP deserialized" << '\n' << std::endl;
 
-    std::ifstream multKeyIStream(multKeyLocation, std::ios::in | std::ios::binary);
+    std::ifstream multKeyIStream(DATAFOLDER + multKeyLocation, std::ios::in | std::ios::binary);
     if (!multKeyIStream.is_open()) {
-        std::cerr << "Cannot read serialization from " multKeyLocation << std::endl;
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + multKeyLocation << std::endl;
         std::exit(1);
     }
     if (!clientCC->DeserializeEvalMultKey(multKeyIStream, SerType::BINARY)) {
         std::cerr << "Could not deserialize eval mult key file" << std::endl;
         std::exit(1);
     }
-    std::cout << "Deserialized eval mult keys" << '\n' << std::endl;
 
-    // std::ifstream rotKeyIStream(rotKeyLocation, std::ios::in | std::ios::binary);
-    // if (!rotKeyIStream.is_open()) {
-    //     std::cerr << "Cannot read serialization from " << rotKeyLocation << std::endl;
-    //     std::exit(1);
-    // }
-    // if (!clientCC->DeserializeEvalAutomorphismKey(rotKeyIStream, SerType::BINARY)) {
-    //     std::cerr << "Could not deserialize eval rot key file" << std::endl;
-    //     std::exit(1);
-    // }
-    
-    return make_pair(clientCC, clientKP);
+    std::cout << "Deserialized eval mult keys" << '\n' << std::endl;
+    std::ifstream rotKeyIStream(DATAFOLDER + rotKeyLocation, std::ios::in | std::ios::binary);
+    if (!rotKeyIStream.is_open()) {
+        std::cerr << "Cannot read serialization from " << DATAFOLDER + multKeyLocation << std::endl;
+        std::exit(1);
+    }
+    if (!clientCC->DeserializeEvalAutomorphismKey(rotKeyIStream, SerType::BINARY)) {
+        std::cerr << "Could not deserialize eval rot key file" << std::endl;
+        std::exit(1);
+    }
+
+
+    return std::make_tuple(clientCC, clientKP);
 }
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
@@ -130,30 +130,6 @@ vector <float> relu(const vector <float>& z){
         else output.push_back(z[i]);
     }
     return output;
-}
-
-double small_relu(double z){
-    if (z < 0)
-        return 0;
-    else
-        return z;
-}
-
-vector<Ciphertext<DCRTPoly>> crypted_relu (CryptoContext<DCRTPoly> cc, const vector<Ciphertext<DCRTPoly>> &z) {
-    int size = z.size();
-    double lowerBound = -10, upperBound = 10;
-    int polyDegree = 10;
-
-    vector<Ciphertext<DCRTPoly>> outout;
-    Ciphertext<DCRTPoly> resultC;
-
-    for(int i=0; i<size; i++) {
-        resultC = cc->EvalChebyshevFunction([](double x) -> double {return small_relu(x);}, z[i], lowerBound, upperBound, polyDegree);
-        outout.push_back(resultC);
-        printProgress(i, size);
-    }
-    cout << endl;
-    return outout;
 }
 
 vector <float> reluPrime (const vector <float>& z) {
@@ -375,7 +351,7 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
      Output: vector, m1 * m2, product of two vectors m1 and m2, a matrix of size m1_rows x m2_columns
      */
     
-    vector <float> output (m1_rows*m2_columns); 
+    vector <float> output (m1_rows*m2_columns);
     
     for( int row = 0; row != m1_rows; ++row ) {
         for( int col = 0; col != m2_columns; ++col ) {
@@ -389,28 +365,70 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
     return output;
 }
 
-vector<Ciphertext<DCRTPoly>> crypted_dot (CryptoContext<DCRTPoly> cc, vector<Ciphertext<DCRTPoly>> &m1, const vector<float> &W, int num_rows, int num_cols) {
-    vector<Ciphertext<DCRTPoly>> output;
-    output.reserve(num_cols);
+// vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vector <float> &m2, const int m1_rows, const int m1_columns, const int m2_columns, CryptoContext<DCRTPoly> cc) {
+    
 
-    vector<ConstCiphertext<DCRTPoly>> inVec;
-    inVec.reserve(num_rows);
-    for (int i = 0; i < num_rows; ++i) {
-        inVec.push_back(m1[i]);
+//     vector <Ciphertext<DCRTPoly>> output (m1_rows*m2_columns);
+
+//     vector <double> temp (m1_columns);
+
+    
+//     int i = 0;
+//     int q = 0;
+//     while (i!= m2_columns){ //enquanto houver multiplicações imagem-coluna de pesos a fazer
+
+//         q=0;
+//         while (q!=m1_columns){ //m1_columns = m2_rows, enquanto não se chegar à ultima linha da matriz de pesos
+//             temp[q] = m2[q*m2_columns + i];
+//             q++;
+//         }
+
+//         // Ciphertext<DCRTPoly> cMul = cc->EvalMult(m1, temp);
+
+//         // output[i] = cMul;
+
+//         i++;
+//     }
+
+
+//     return output;
+// }
+
+
+vector <Ciphertext<DCRTPoly>> dotE (vector <Ciphertext<DCRTPoly>> &m1, const vector <float> &m2, const int m1_rows, const int m1_columns, const int m2_columns, CryptoContext<DCRTPoly> cc) {
+    
+    vector <Ciphertext<DCRTPoly>> output (m2_columns);
+    vector <double> temp (m1_columns);
+
+    vector<ConstCiphertext<DCRTPoly>> ciphertextVec;
+
+    for (int i = 0; i < m1_columns; ++i) {
+        ciphertextVec.push_back(m1[i]);
     }
 
-    for(int i=0; i<num_cols; i++) {
-        vector<double> col;
-        for(int j=0; j<num_rows; j++) {
-            int index = num_rows*i + j;
-            col.push_back(W[index]);
+    int i = 0;
+    int q = 0;
+    while (i!= m2_columns){ 
+
+        q = 0;
+        while (q!=m1_columns){
+            temp[q] = m2[i+q*m2_columns];
+            q = q + 1;
         }
-        auto val = cc->EvalLinearWSum(inVec, col);
-        output.push_back(val);
-        printProgress(i, num_cols);
-    }
-    cout << endl;
 
+        
+        //output[i] = cc->EvalLinearWSum(m1, temp);
+        //auto mul = cc->EvalMult(m1[i],5);
+        auto mul = cc->EvalLinearWSum(ciphertextVec, temp);
+        output[i] = mul;
+
+        i++;
+        printProgress(i, m2_columns);
+    }
+    cout <<endl;
+
+    // std::cout << temp << '\n' << std::endl;
+    // std::cout << m1 << '\n' << std::endl;
     return output;
 }
 
@@ -469,7 +487,7 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
     vector <float> W3 = random_vector(64*10);
 
     // Initialization of best weights and loss
-    float best_accuracy = 0.0;
+    float best_loss = 1.0;
     vector <float> best_W1 = W1;
     vector <float> best_W2 = W2;
     vector <float> best_W3 = W3;
@@ -524,35 +542,20 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
             for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
                 loss += loss_m[k]*loss_m[k];
             }
-            cout << "                                                Loss " << loss/BATCH_SIZE <<"\n";
-            float max = 0.0, accuracy = 0.0;
-            int max_idx=0;
-            for(int k=0; k<BATCH_SIZE; k++) {
-                for(int l=0; l<10; l++) {
-                    if(yhat[k*10 + l]>max) {
-                        max_idx = l;
-                        max = yhat[k*10 + max_idx];
-                    }
-                }
-                if(b_y[k*10 + max_idx] == 1)
-                    accuracy += 1.0;
-                max = 0.0;
-                // cout << max_idx << " ";
-            }
-            // cout << endl;
-            cout << "                                            Accuracy " << accuracy/BATCH_SIZE <<"\n";
+            cout << "                                            Loss " << loss/BATCH_SIZE <<"\n";
             // Upating the best parameters
-            if(accuracy/BATCH_SIZE > best_accuracy){
+            if(loss/BATCH_SIZE < best_loss){
                 cout << "Updating weights ...\n";
-                best_accuracy = accuracy/BATCH_SIZE;
+                best_loss = loss/BATCH_SIZE;
                 best_W1 = W1;
                 best_W2 = W2;
                 best_W2 = W2;
             }
-            cout << "                                       Best Accuracy " << best_accuracy <<"\n";
             cout << "--------------------------------------------End of Epoch :(------------------------------------------------" <<"\n";
         };
     };
+
+    std::cout << best_loss << '\n' << std::endl;
 
     vector<vector<float>> weights;
     weights.push_back(W1);
@@ -560,6 +563,39 @@ vector<vector<float>> train_model(vector<float> X_train, vector<float> y_train) 
     weights.push_back(W3);
 
     return weights;
+}
+
+double small_relu(const double z){
+    if (z < 0)
+        return 0;
+    else
+        return z;
+}
+
+vector<Ciphertext<DCRTPoly>> cipherRelu(vector<Ciphertext<DCRTPoly>> X, CryptoContext<DCRTPoly> cc, const int cols) {
+
+    double lowerBound = -10;
+    double upperBound = 10;
+
+    int polyDegree = 5;
+
+
+    vector<Ciphertext<DCRTPoly>> resultAll;
+    std::cout << X.size() << '\n' << std::endl;
+    int i = 0;
+    while (i < cols){
+
+
+        auto resultC = cc->EvalChebyshevFunction([](double x) -> double {return small_relu(x);}, X[i], lowerBound, upperBound, polyDegree);
+
+        resultAll.push_back(resultC);
+
+        i = i + 1;
+        printProgress(i, cols);
+    }
+    cout << endl;
+
+    return resultAll;
 }
 
 vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> weights) {
@@ -584,7 +620,15 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     vector<float> a1 = relu(dot( b_X, W1, BATCH_SIZE, 784, 128 ));
     vector<float> a2 = relu(dot( a1, W2, BATCH_SIZE, 128, 64 ));
     vector<float> yhat = softmax(dot( a2, W3, BATCH_SIZE, 64, 10 ), 10);
-        
+
+
+    // std::cout << (dot( b_X, W1, BATCH_SIZE, 784, 128 )) << '\n' << std::endl;
+    // std::cout << (dot( a1, W2, BATCH_SIZE, 128, 64 )) << '\n' << std::endl;
+    // std::cout << (dot( a2, W3, BATCH_SIZE, 64, 10 )) << '\n' << std::endl;
+
+    // std::cout << dot( a2, W3, BATCH_SIZE, 64, 10 ) << '\n' << std::endl;
+    
+
     vector<float> loss_m = yhat - b_y;
     float loss = 0.0;
     for (unsigned k = 0; k < BATCH_SIZE*10; ++k){
@@ -595,44 +639,55 @@ vector<float> predict(vector<float> X, vector<float> y, vector<vector<float>> we
     return yhat;
 }
 
-void crypted_predict(CryptoContext<DCRTPoly> cc, vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights) {
-    cout << "Making the predictions ...\n" << endl;
+void infer(vector<Ciphertext<DCRTPoly>> X, vector<vector<float>> weights, CryptoContext<DCRTPoly> cc, int mode) {
+    vector<float> W1 = weights[0];
+    vector<float> W2 = weights[1];
+    vector<float> W3 = weights[2];
+
+    cout << "Making the predictions ...\n";
+
+    // X[0] uma coluna com o 1 pixel de 8k imagens
 
     // Feed forward
-    cout << "\nFirst dot start!" << endl;
-    vector<Ciphertext<DCRTPoly>> aux1 = crypted_dot(cc, X, weights[0], 784, 128);
-    cout << "First dot done!" << endl;
-    cout << "First relu start!" << endl;
-    vector<Ciphertext<DCRTPoly>> a1 = crypted_relu(cc, aux1);
-    cout << "First relu done!" << endl;
-    cout << "Second dot start!" << endl;
-    vector<Ciphertext<DCRTPoly>> aux2 = crypted_dot(cc, a1, weights[1], 128, 64);
-    cout << "Second dot done!" << endl;
-    cout << "Second relu start!" << endl;
-    vector<Ciphertext<DCRTPoly>> a2 = crypted_relu(cc, aux2);
-    cout << "Second relu done!" << endl;
-    cout << "Third dot start!" << endl;
-    vector<Ciphertext<DCRTPoly>> yhat = crypted_dot(cc, a2, weights[2], 64, 10);
-    cout << "Third dot done!" << endl;
+    vector<Ciphertext<DCRTPoly>> a1;
+    vector<Ciphertext<DCRTPoly>> a2;
+    vector<Ciphertext<DCRTPoly>> a3;
 
-    cout << "Saving nn output ..." << endl;
+    if (mode==0){
+        a1 = (dotE( X, W1, BATCH_SIZE_E, 784, 128, cc ));
+        a2 = (dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ));
+        a3 = (dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc ));
+    }
+    if (mode==1){
+        a1 = cipherRelu(dotE( X, W1, BATCH_SIZE_E, 784, 128, cc ), cc, 128);
+        a2 = cipherRelu(dotE( a1, W2, BATCH_SIZE_E, 128, 64, cc ), cc, 64);
+        a3 = dotE( a2, W3, BATCH_SIZE_E, 64, 10, cc );
+    }
+    
+    //cheby
+        
 
-    // if (!Serial::SerializeToFile(OUTPUT_PATH, yhat, SerType::BINARY)) {
-    //     std::cerr << "No good during output save" << std::endl;
-    //     std::exit(1);
-    // }
+    if (!Serial::SerializeToFile(DATAFOLDER + "/enc_output.txt", a3, SerType::BINARY)) {
+        std::cerr << "No good during output save" << std::endl;
+        std::exit(1);
+    }
+    else{
+        std::cerr << "Very good during output save" << std::endl;
+    }
+
+
 }
 
 int main(int argc, const char * argv[]) {
     vector<vector<float>> weights;
-    vector<Ciphertext<DCRTPoly>> input;
 
-    if(argc != 2) {
-        std::cerr << "Wrong number of arguments!\nExpecting two arguments: \"train\" or \"test\".\n" << std::endl;
+    if(argc != 3) {
+        std::cerr << "Wrong number of arguments!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
     }
 
     string func = argv[1];
+    int mode = atoi(argv[2]);
 
     if(func == "train") {
         pair<vector<float>,vector<float>> train_data = load_data("files/train.txt");
@@ -653,18 +708,35 @@ int main(int argc, const char * argv[]) {
             std::exit(1);
         }
 
-        cout << "Reading inputs from file ...\n" << endl;
+        pair<vector<float>,vector<float>> test_data = load_data("files/train.txt");
 
-        if (!Serial::DeserializeFromFile(INPUT_PATH, input, SerType::BINARY)) {
-            std::cerr << "Cannot read inputs from " << INPUT_PATH << std::endl;
+        vector<float> yhat = predict(test_data.first, test_data.second, weights);
+
+    }else if(func == "infer") {
+        cout << "Reading weights from file ...\n";
+
+        if (!Serial::DeserializeFromFile(WEIGHTS_PATH, weights, SerType::BINARY)) {
+            std::cerr << "Cannot read weiths from " << WEIGHTS_PATH << std::endl;
             std::exit(1);
         }
 
+
         auto tupleCryptoContext_KeyPair = clientProcess();
-        CryptoContext<DCRTPoly> cc = tupleCryptoContext_KeyPair.first;
+        auto cc                         = std::get<0>(tupleCryptoContext_KeyPair);
+
+        // cc->Enable(PKE);
+        // cc->Enable(KEYSWITCH);
+        // cc->Enable(LEVELEDSHE);
         cc->Enable(ADVANCEDSHE);
-        
-        crypted_predict(cc, input, weights);
+
+        vector <Ciphertext<DCRTPoly>> client_X_input;
+        if (!Serial::DeserializeFromFile(DATAFOLDER + "/crypted_X_input.txt", client_X_input, SerType::BINARY)) {       //leitura da entrada (imagem)
+            std::cerr << "Cannot read serialization from " << DATAFOLDER + "/crypted_X_input.txt" << std::endl;
+            std::exit(1);
+        }
+
+        infer(client_X_input, weights, cc, mode);
+
     }else {
         std::cerr << "Invalid argument!\nExpecting one argument: train or test\n" << std::endl;
         std::exit(1);
